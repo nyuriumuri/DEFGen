@@ -28,9 +28,6 @@ END UNITS
 
 MANUFACTURINGGRID 0.005 ;
 
-PROPERTYDEFINITIONS
-  LAYER LEF58_TYPE STRING ;
-END PROPERTYDEFINITIONS
 
 # High density, single height
 SITE unithd
@@ -46,15 +43,9 @@ SITE unithddbl
   SIZE 0.46 BY 5.44 ;
 END unithddbl
 
-LAYER nwell
-  TYPE MASTERSLICE ;
-  PROPERTY LEF58_TYPE "TYPE NWELL ;" ;
-END nwell
 
-LAYER pwell
-  TYPE MASTERSLICE ;
-  PROPERTY LEF58_TYPE "TYPE PWELL ;" ;
-END pwell
+
+
 
 LAYER li1
   TYPE ROUTING ;
@@ -95,8 +86,8 @@ LAYER met1
   TYPE ROUTING ;
   DIRECTION HORIZONTAL ;
 
-  PITCH 0.34 ;
-  OFFSET 0.17 ;
+  PITCH 0.34 0.34 ;
+  OFFSET 0.17 0.17 ;
 
   WIDTH 0.14 ;                     # Met1 1
   # SPACING 0.14 ;                 # Met1 2
@@ -138,8 +129,8 @@ LAYER met2
   TYPE ROUTING ;
   DIRECTION VERTICAL ;
 
-  PITCH 0.46 ;
-  OFFSET 0.23 ;
+  PITCH 0.46 0.46 ;
+  OFFSET 0.23 0.23 ;
 
   WIDTH 0.14 ;                        # Met2 1
   # SPACING  0.14 ;                   # Met2 2
@@ -181,8 +172,8 @@ LAYER met3
   TYPE ROUTING ;
   DIRECTION HORIZONTAL ;
 
-  PITCH 0.68 ;
-  OFFSET 0.34 ;
+  PITCH 0.68 0.68 ;
+  OFFSET 0.34 0.34 ;
 
   WIDTH 0.3 ;              # Met3 1
   # SPACING 0.3 ;          # Met3 2
@@ -221,8 +212,8 @@ LAYER met4
   TYPE ROUTING ;
   DIRECTION VERTICAL ;
 
-  PITCH 0.92 ;
-  OFFSET 0.46 ;
+  PITCH 0.92 0.92 ;
+  OFFSET 0.46 0.46 ;
 
   WIDTH 0.3 ;             # Met4 1
   # SPACING  0.3 ;             # Met4 2
