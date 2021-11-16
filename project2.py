@@ -20,9 +20,16 @@ BUSBITCHARS "[]" ;
 DESIGN """ +name+ """  ;
 UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str(diearea[1]) +") ;")
 
-    printRows(parser)
-    printTracks(parser.layer_dict.values())
-    printComponents(ast)
+    output = ""
+    output+=printRows(parser)
+    output+=printTracks(parser.layer_dict.values())
+    cellnames, cells = printComponents(ast)
+    output+=cellnames
+    print(output)
+    getCellAreas(cells, parser)
+    getMinWidth()
+    return
+
 
 
 
@@ -37,11 +44,13 @@ def printComponents(ast):
                 getInstances(child) 
     
     getInstances(ast)
+    modules = []
     output = "COMPONENTS {0} ;\n".format(len(components))
     for c in components:
         output+="   - {0} {1} ;\n".format(c.name,c.module)
-    print(output)
-    return output
+        modules.append(c.module)
+    # print(output)
+    return output, modules
 
 def printRows(parser, start=10880, lim = 109710):
      i = 0
@@ -58,6 +67,7 @@ def printRows(parser, start=10880, lim = 109710):
 
 def printTracks(layers):
     track = ""
+    
     for layer in layers:
     
         # layer = parser.layer_dict[layer]
@@ -84,11 +94,31 @@ def printTracks(layers):
                 widthx=widthy = int(layer.offset*factor)
             track+="TRACKS X "+str(widthx)+" DO "+str(numtrack)+" STEP "+str(pitchx) + " LAYER "+ layer.name+"\n"
             track+="TRACKS Y "+str(widthy)+" DO "+str(numtrack)+" STEP "+str(pitchy) + " LAYER "+ layer.name+"\n"
-            
+        
         # print(layer)
     print(track)
     return track
    
+
+def getCellAreas(cells, parser, factor=1000):
+    area = 0
+    for cell in cells:
+        size = parser.macro_dict[cell].info["SIZE"]
+        area += size[0]*size[1]*factor*factor
+        print(size)
+    print(area)
+    return area
+
+def getMinWidth(file='lef.lef'):
+    with open(file,'r') as f:
+        for line in f:
+            if 'SITE'in line and 'unithd' in line:
+                for line in f:
+                    s = line.split()
+                    if s[0] == "SIZE":
+                        # print(s[1],s[2],s[3])
+                        return (s[1])
+    return 1
 
 if __name__ == "__main__":
     main()
