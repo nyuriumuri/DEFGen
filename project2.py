@@ -19,7 +19,7 @@ def main():
 DIVIDERCHAR "/" ;
 BUSBITCHARS "[]" ;
 DESIGN """ +name+ """  ;
-UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str(diearea[1]) +") ;\n"
+UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str(diearea[1]) +" ) ;\n"
 
     # output = ""
     output+=printRows(parser)
@@ -28,7 +28,10 @@ UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str
     output+=cellnames
     nets, netstr = getNets(cells)
     output+=netstr
+    output+="END DESIGN"
     print(output)
+    with open('def.def', 'w') as f:
+        f.write(output)
     getCellAreas(cells, parser)
     getMinWidth()
     
@@ -52,9 +55,10 @@ def getComponents(ast):
     # modules = []
     output = "COMPONENTS {0} ;\n".format(len(components))
     for c in components:
-        output+="   - {0} {1} ;\n".format(c.name,c.module)
+        output+="\t\t- {0} {1} ;\n".format(c.name,c.module)
         # modules.append(c.module)
     # print(output)
+    output+="END COMPONENTS\n"
     return output, components
 
 def printRows(parser, start=10880, lim = 109710):
@@ -64,7 +68,7 @@ def printRows(parser, start=10880, lim = 109710):
      do = 191
      step = 460
      while (start+(i+1)*height) <= lim-start:
-         out+="ROW ROW_{0} unithd 5520 {1} N DO {2} BY 1 STEP {3} 0 ; \n".format(i, start+i*height, do, step)
+         out+="ROW ROW_{0} unithd 5520 {1} {4} DO {2} BY 1 STEP {3} 0 ; \n".format(i, start+i*height, do, step, ('FS' if i%2 else 'N'))
          i+=1
     #  print(out)
      return out
@@ -97,8 +101,8 @@ def printTracks(layers):
                 widthy = int(layer.offset[1]*factor)
             else:
                 widthx=widthy = int(layer.offset*factor)
-            track+="TRACKS X "+str(widthx)+" DO "+str(numtrack)+" STEP "+str(pitchx) + " LAYER "+ layer.name+"\n"
-            track+="TRACKS Y "+str(widthy)+" DO "+str(numtrack)+" STEP "+str(pitchy) + " LAYER "+ layer.name+"\n"
+            track+="TRACKS X "+str(widthx)+" DO "+str(numtrack)+" STEP "+str(pitchx) + " LAYER "+ layer.name+" ;\n"
+            track+="TRACKS Y "+str(widthy)+" DO "+str(numtrack)+" STEP "+str(pitchy) + " LAYER "+ layer.name+" ;\n"
         
         # print(layer)
     # print(track)
@@ -144,11 +148,12 @@ def getNets(components):
             nets[netname].append((c.name,p.portname))
     output = "NETS {0} ;\n".format(len(nets))
     for net in sorted(nets):
-        output+="\t - {0} ".format(net)
+        output+="\t \t- {0} ".format(net)
         for connection in nets[net]:
             output+="( {0} {1} ) ".format(connection[0],connection[1])
         output+=" + USE SIGNAL ;\n"
     # print(output)
+    output+="END NETS\n"
     return nets, output
 if __name__ == "__main__":
     main()
