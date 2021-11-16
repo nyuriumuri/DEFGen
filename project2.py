@@ -3,6 +3,7 @@ import pyverilog
 import sys
 import io
 from pyverilog.vparser.parser import parse as vparse
+from collections import OrderedDict
 
 import pprint
 def main():
@@ -14,43 +15,47 @@ def main():
     # pprint.pprint(parser.layer_dict)
     name = "lef"
     diearea = ( 98990, 109710 )
-    print("""VERSION 5.8 ;
+    output="""VERSION 5.8 ;
 DIVIDERCHAR "/" ;
 BUSBITCHARS "[]" ;
 DESIGN """ +name+ """  ;
-UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str(diearea[1]) +") ;")
+UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str(diearea[1]) +") ;\n"
 
-    output = ""
+    # output = ""
     output+=printRows(parser)
     output+=printTracks(parser.layer_dict.values())
-    cellnames, cells = printComponents(ast)
+    cellnames, cells = getComponents(ast)
     output+=cellnames
+    nets, netstr = getNets(cells)
+    output+=netstr
     print(output)
     getCellAreas(cells, parser)
     getMinWidth()
+    
     return
 
 
 
 
 
-def printComponents(ast):  
+def getComponents(ast):  
     components = []
     def getInstances(x):
         if isinstance(x,pyverilog.vparser.ast.Instance):
             components.append(x)
+          
         else:
             for child in x.children():
                 getInstances(child) 
     
     getInstances(ast)
-    modules = []
+    # modules = []
     output = "COMPONENTS {0} ;\n".format(len(components))
     for c in components:
         output+="   - {0} {1} ;\n".format(c.name,c.module)
-        modules.append(c.module)
+        # modules.append(c.module)
     # print(output)
-    return output, modules
+    return output, components
 
 def printRows(parser, start=10880, lim = 109710):
      i = 0
@@ -61,7 +66,7 @@ def printRows(parser, start=10880, lim = 109710):
      while (start+(i+1)*height) <= lim-start:
          out+="ROW ROW_{0} unithd 5520 {1} N DO {2} BY 1 STEP {3} 0 ; \n".format(i, start+i*height, do, step)
          i+=1
-     print(out)
+    #  print(out)
      return out
 
 
@@ -96,17 +101,17 @@ def printTracks(layers):
             track+="TRACKS Y "+str(widthy)+" DO "+str(numtrack)+" STEP "+str(pitchy) + " LAYER "+ layer.name+"\n"
         
         # print(layer)
-    print(track)
+    # print(track)
     return track
    
 
 def getCellAreas(cells, parser, factor=1000):
     area = 0
     for cell in cells:
-        size = parser.macro_dict[cell].info["SIZE"]
+        size = parser.macro_dict[cell.module].info["SIZE"]
         area += size[0]*size[1]*factor*factor
-        print(size)
-    print(area)
+        # print(size)
+    # print(area)
     return area
 
 def getMinWidth(file='lef.lef'):
@@ -120,5 +125,30 @@ def getMinWidth(file='lef.lef'):
                         return (s[1])
     return 1
 
+
+
+def getNets(components):
+    nets = {}
+    for c in components:
+        for p in c.portlist:
+            netname = p.argname
+            if isinstance(netname, pyverilog.vparser.ast.Pointer):
+                # print(netname.var,netname.ptr)
+                # netname = netname.var
+                netname = str(netname.var)+"["+str(netname.ptr)+"]"
+            else:
+                netname = netname.name
+            if netname not in nets:
+                # print(netname)
+                nets[netname] = []
+            nets[netname].append((c.name,p.portname))
+    output = "NETS {0} ;\n".format(len(nets))
+    for net in sorted(nets):
+        output+="\t - {0} ".format(net)
+        for connection in nets[net]:
+            output+="( {0} {1} ) ".format(connection[0],connection[1])
+        output+=" + USE SIGNAL ;\n"
+    # print(output)
+    return nets, output
 if __name__ == "__main__":
     main()
