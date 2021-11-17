@@ -4,16 +4,19 @@ import sys
 import io
 from pyverilog.vparser.parser import parse as vparse
 from collections import OrderedDict
+import hdlparse.verilog_parser as vlog
 
 import pprint
 def main():
-    ast, directives = vparse(["lut_s44.synthesis.v"])
-    parser = LefParser('lef.lef')
+    vfile = "lut_s44.synthesis.v"
+    ast, directives = vparse([vfile])
+    leffile = 'lef.lef'
+    parser = LefParser(leffile)
     parser.parse()
     # pprint.pprint(parser.statements)
     # print(parser.stack)
     # pprint.pprint(parser.layer_dict)
-    name = "lef"
+    name = ast.children()[0].children()[0].name
     diearea = ( 98990, 109710 )
     output="""VERSION 5.8 ;
 DIVIDERCHAR "/" ;
@@ -24,42 +27,72 @@ UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str
     # output = ""
     output+=printRows(parser)
     output+=printTracks(parser.layer_dict.values())
-    cellnames, cells = getComponents(ast)
+    cellnames, cells,ports = getComponents(ast)
+    
     output+=cellnames
+    output+=getPins(ports)
     nets, netstr = getNets(cells)
     output+=netstr
+
     output+="END DESIGN"
     print(output)
     with open('def.def', 'w') as f:
         f.write(output)
     getCellAreas(cells, parser)
     getMinWidth()
+    astshow = io.StringIO()
+    ast.show(attrnames=True, buf=astshow)
+    with open('ast.txt','w') as f:
+        f.write(astshow.getvalue())
     
     return
 
 
 
 
-
 def getComponents(ast):  
     components = []
+    ports =[]
     def getInstances(x):
         if isinstance(x,pyverilog.vparser.ast.Instance):
             components.append(x)
           
         else:
             for child in x.children():
+                # print(child)
+                width = None
+                if isinstance(child, pyverilog.vparser.ast.Input):
+                   
+                    if child.width:
+                        # pass
+                        width=(child.width.lsb.value,child.width.msb.value)
+                    ports.append({
+                        "name" : child.name,
+                        "direction" : 'INPUT',
+                        "width" : width
+                    })
+                if isinstance(child, pyverilog.vparser.ast.Output):
+                    if child.width:
+                        # pass
+                        width=(child.width.lsb.value,child.width.msb.value)
+                    ports.append({
+                        "name" : child.name,
+                        "direction" : 'OUPUT',
+                        "width" : width
+                    })
                 getInstances(child) 
-    
+
+    # print([(port.name,port.type) for port in ast.children()[0].children()[0].portlist.ports])            
+
     getInstances(ast)
     # modules = []
     output = "COMPONENTS {0} ;\n".format(len(components))
     for c in components:
-        output+="\t\t- {0} {1} ;\n".format(c.name,c.module)
+        output+="\t- {0} {1} ;\n".format(c.name,c.module)
         # modules.append(c.module)
     # print(output)
     output+="END COMPONENTS\n"
-    return output, components
+    return output, components,ports
 
 def printRows(parser, start=10880, lim = 109710):
      i = 0
@@ -148,12 +181,33 @@ def getNets(components):
             nets[netname].append((c.name,p.portname))
     output = "NETS {0} ;\n".format(len(nets))
     for net in sorted(nets):
-        output+="\t \t- {0} ".format(net)
+        output+="\t - {0} ".format(net)
         for connection in nets[net]:
             output+="( {0} {1} ) ".format(connection[0],connection[1])
         output+=" + USE SIGNAL ;\n"
     # print(output)
     output+="END NETS\n"
     return nets, output
+
+def getPins(ports):
+    pins = []
+    for port in ports:
+        if port['width']:
+            lsb = int(port['width'][0])
+            msb = int(port['width'][1])
+
+            for i in range(lsb,msb+1):
+                line = "\t - {0}[{2}] + NET {0}[{2}] + DIRECTION {1} + USE SIGNAL ;\n".format(port['name'],port['direction'],i)
+                pins.append(line)
+        else:
+            line = "\t - {0} + NET {0} + DIRECTION {1} + USE SIGNAL ;\n".format(port['name'],port['direction'])
+            pins.append(line)
+    output = "PINS {0} ;\n".format(len(pins))
+    for pin in pins:
+        output+=pin
+    output+="END PINS\n"
+    # print(output)
+    return output
+
 if __name__ == "__main__":
     main()
