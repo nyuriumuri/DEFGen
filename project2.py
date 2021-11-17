@@ -9,7 +9,7 @@ import hdlparse.verilog_parser as vlog
 from getmn import getdim
 import pprint
 import argparse
-
+from getpinpos import getPinPosition
 
 def main(vfile, leffile, pinfile, aspectRatio=1, xmargin = 5520, ymargin = 10880):
     # vfile = "tests/spm_synthesis.v"
@@ -35,7 +35,7 @@ UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str
 
     # output = ""
     output+=printRows(parser,start=margins[1], lim = diearea[1]-margins[1], do=math.floor((diearea[1]-2*margins[1])/(1000*getMinWidth(leffile))), step= int(1000*getMinWidth(leffile)))
-    output+=printTracks(parser.layer_dict.values())
+    # output+=printTracks(parser.layer_dict.values())
     
     
     output+=cellnames
@@ -207,7 +207,8 @@ def getPins(ports, xmax=98990, ymax=109710, pinfile = "tests/pins.txt", ):
                 direction = line
                 continue 
             else:
-                directions[line] = direction
+                if line != '':
+                    directions[line] = direction
     # pprint.pprint(directions)
 
 
@@ -223,6 +224,16 @@ def getPins(ports, xmax=98990, ymax=109710, pinfile = "tests/pins.txt", ):
             if port['name'] not in directions:
                 directions[port['name']] = '#N'
    
+    positions = {
+        '#N' : [],
+        '#E' : [],
+        '#W' : [],
+        '#S' : [],
+    }
+    for key in directions:
+        positions[directions[key]].append(key)
+    positions =getPinPosition(xmax,ymax,positions)
+    pprint.pprint(positions)
     for port in ports:
         if port['width']:
             lsb = int(port['width'][0])
@@ -230,18 +241,53 @@ def getPins(ports, xmax=98990, ymax=109710, pinfile = "tests/pins.txt", ):
             for i in range(lsb,msb+1):
                 line = "\t - {0}[{2}] + NET {0}[{2}] + DIRECTION {1} + USE SIGNAL \n\t\t+ PORT\n".format(port['name'],port['direction'],i)
                 name = port['name']+'['+str(i)+']'
-                layer = "\t\t\t + LAYER met2 ( -140 -2000 ) ( 140 2000 )\n"
+                layer = "\t\t\t + LAYER met3 ( -2000 -300 ) ( 2000 300 )\n"
+                left = 2000
+                top = 300
                 if name not in directions or directions[name] == '#N' or directions[name] == '#S':
-                    layer = "\t\t\t + LAYER met3 ( -2000 -300 ) ( 2000 300 )\n"
+                    
+                    layer = "\t\t\t + LAYER met2 ( -140 -2000 ) ( 140 2000 )\n"
+                    left = 140
+                    top = 2000
                 line += layer
+                x = positions[name][0]
+                y = positions[name][1]
+                if x == xmax:
+                    x-=left 
+                else:
+                    x+=left
+                if ymax == y:
+                    y-=top
+                else:
+                    y+=top
+                placed = "\t\t\t + PLACED ( {0} {1} ) N ;\n".format(x,y)
+                line+=placed
                 pins.append(line)
         else:
             line = "\t - {0} + NET {0} + DIRECTION {1} + USE SIGNAL \n\t\t + PORT\n".format(port['name'],port['direction'])
             name = port['name']
-            layer = "\t\t\t + LAYER met2 ( -140 -2000 ) ( 140 2000 )\n"
+            layer = "\t\t\t + LAYER met3 ( -2000 -300 ) ( 2000 300 )\n"
+            left = 2000
+            top = 300
+            print(directions[name])
             if name not in directions or directions[name] == '#N' or directions[name] == '#S':
-                layer = "\t\t\t + LAYER met3 ( -2000 -300 ) ( 2000 300 )\n"
+
+                layer = "\t\t\t + LAYER met2 ( -140 -2000 ) ( 140 2000 )\n"
+                left = 140
+                top = 2000
             line += layer
+            x = positions[name][0]
+            y = positions[name][1]
+            if x == xmax:
+                x-=left 
+            else:
+                x+=left
+            if ymax == y:
+                y-=top
+            else:
+                y+=top
+            placed = "\t\t\t + PLACED ( {0} {1} ) N ;\n".format(x,y)
+            line+=placed
             pins.append(line)
     output = "PINS {0} ;\n".format(len(pins))
     for pin in pins:
