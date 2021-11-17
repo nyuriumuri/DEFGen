@@ -11,7 +11,7 @@ def getdim (aspectratio,totalarea,lmin,wmin,Util=0.6):
 
 """ input = [ xmax,
            ymax,
-                {
+            directions =    {
                     'N' : [
                             pin1,
                             pin2,
@@ -25,4 +25,3 @@ def getdim (aspectratio,totalarea,lmin,wmin,Util=0.6):
                 }
  }
  """
-

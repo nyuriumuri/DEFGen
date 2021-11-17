@@ -8,22 +8,25 @@ from collections import OrderedDict
 import hdlparse.verilog_parser as vlog
 from getmn import getdim
 import pprint
-def main():
-    vfile = "spm_synthesis.v"
+import argparse
+
+
+def main(vfile, leffile, pinfile, aspectRatio=1, xmargin = 5520, ymargin = 10880):
+    # vfile = "tests/spm_synthesis.v"
     ast, directives = vparse([vfile])
-    leffile = 'lef.lef'
+    # leffile = 'tests/lef.lef'
     parser = LefParser(leffile)
     parser.parse()
-    margins = (5520, 10880)
+    margins = (xmargin, ymargin)
     # pprint.pprint(parser.statements)
     # print(parser.stack)
     # pprint.pprint(parser.layer_dict)
-    aspectRatio = 0.8
+    # aspectRatio = 0.8
     cellnames, cells,ports = getComponents(ast)
-    diearea = getdim(aspectRatio,getCellAreas(cells, parser),parser.cell_height*1000,float(getMinWidth())*1000,Util=0.6)
+    diearea = getdim(aspectRatio,getCellAreas(cells, parser),parser.cell_height*1000,float(getMinWidth(leffile))*1000,Util=0.6)
     diearea = (int(diearea[0]+2*margins[0]),int(diearea[1]+2*margins[1]))
     name = ast.children()[0].children()[0].name
-    print(diearea)
+    # print(diearea)
     output="""VERSION 5.8 ;
 DIVIDERCHAR "/" ;
 BUSBITCHARS "[]" ;
@@ -31,12 +34,12 @@ DESIGN """ +name+ """  ;
 UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str(diearea[1]) +" ) ;\n"
 
     # output = ""
-    output+=printRows(parser,start=margins[1], lim = diearea[1]-margins[1], do=math.floor((diearea[1]-2*margins[1])/(1000*getMinWidth())), step= int(1000*getMinWidth()))
+    output+=printRows(parser,start=margins[1], lim = diearea[1]-margins[1], do=math.floor((diearea[1]-2*margins[1])/(1000*getMinWidth(leffile))), step= int(1000*getMinWidth(leffile)))
     output+=printTracks(parser.layer_dict.values())
     
     
     output+=cellnames
-    output+=getPins(ports)
+    output+=getPins(ports, xmax=diearea[0],ymax=diearea[1],pinfile=pinfile)
     nets, netstr = getNets(cells)
     output+=netstr
 
@@ -155,7 +158,7 @@ def getCellAreas(cells, parser, factor=1000):
     # print(area)
     return area
 
-def getMinWidth(file='lef.lef'):
+def getMinWidth(file='tests/lef.lef'):
     with open(file,'r') as f:
         for line in f:
             if 'SITE'in line and 'unithd' in line:
@@ -193,7 +196,7 @@ def getNets(components):
     output+="END NETS\n"
     return nets, output
 
-def getPins(ports, xmax=98990, ymax=109710, pinfile = "pins.txt", ):
+def getPins(ports, xmax=98990, ymax=109710, pinfile = "tests/pins.txt", ):
     pins = []
     direction = '#N'
     directions = {}
@@ -205,18 +208,40 @@ def getPins(ports, xmax=98990, ymax=109710, pinfile = "pins.txt", ):
                 continue 
             else:
                 directions[line] = direction
-    pprint.pprint(directions)
+    # pprint.pprint(directions)
+
 
     for port in ports:
         if port['width']:
             lsb = int(port['width'][0])
             msb = int(port['width'][1])
-
             for i in range(lsb,msb+1):
-                line = "\t - {0}[{2}] + NET {0}[{2}] + DIRECTION {1} + USE SIGNAL ;\n".format(port['name'],port['direction'],i)
+                name = port['name']+'['+str(i)+']'
+                if name not in directions:
+                    directions[name] = '#N'
+        else:
+            if port['name'] not in directions:
+                directions[port['name']] = '#N'
+   
+    for port in ports:
+        if port['width']:
+            lsb = int(port['width'][0])
+            msb = int(port['width'][1])
+            for i in range(lsb,msb+1):
+                line = "\t - {0}[{2}] + NET {0}[{2}] + DIRECTION {1} + USE SIGNAL \n\t\t+ PORT\n".format(port['name'],port['direction'],i)
+                name = port['name']+'['+str(i)+']'
+                layer = "\t\t\t + LAYER met2 ( -140 -2000 ) ( 140 2000 )\n"
+                if name not in directions or directions[name] == '#N' or directions[name] == '#S':
+                    layer = "\t\t\t + LAYER met3 ( -2000 -300 ) ( 2000 300 )\n"
+                line += layer
                 pins.append(line)
         else:
-            line = "\t - {0} + NET {0} + DIRECTION {1} + USE SIGNAL ;\n".format(port['name'],port['direction'])
+            line = "\t - {0} + NET {0} + DIRECTION {1} + USE SIGNAL \n\t\t + PORT\n".format(port['name'],port['direction'])
+            name = port['name']
+            layer = "\t\t\t + LAYER met2 ( -140 -2000 ) ( 140 2000 )\n"
+            if name not in directions or directions[name] == '#N' or directions[name] == '#S':
+                layer = "\t\t\t + LAYER met3 ( -2000 -300 ) ( 2000 300 )\n"
+            line += layer
             pins.append(line)
     output = "PINS {0} ;\n".format(len(pins))
     for pin in pins:
@@ -226,4 +251,28 @@ def getPins(ports, xmax=98990, ymax=109710, pinfile = "pins.txt", ):
     return output
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("vfile",
+                     help="filepath of the synthesised verilog module")
+    parser.add_argument("leffile",
+                     help="filepath of the lef file")
+    parser.add_argument("pinfile",
+                     help="filepath of the pin file")
+    parser.add_argument("--x",
+                     help="x margin between the core and the die", type=int)
+    parser.add_argument("--y",
+                     help="y margin between the core and the die", type=int)    
+    parser.add_argument("--aspect",
+                     help="aspect ratio of the core", type=float)    
+    aspectRatio=1
+    xmargin = 5520
+    ymargin = 10880
+    args = parser.parse_args()   
+    if args.aspect:
+        aspectRatio = args.aspect
+    if args.x:
+        xmargin = args.x
+    if args.y:
+        ymargin = args.y
+                
+    main(args.vfile,args.leffile,args.pinfile, aspectRatio, xmargin, ymargin)
