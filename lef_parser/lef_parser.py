@@ -4,6 +4,10 @@ Author: Tri Cao
 Email: tricao@utdallas.edu
 Date: August 2016
 """
+import sys
+import os
+script_dir = os.path.dirname( __file__ )
+sys.path.append(script_dir)
 from lef_util import *
 from util import *
 

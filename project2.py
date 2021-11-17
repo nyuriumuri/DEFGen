@@ -1,4 +1,4 @@
-from lef_parser import *
+from lef_parser.lef_parser import *
 import pyverilog
 import sys
 import io
@@ -7,7 +7,7 @@ from collections import OrderedDict
 
 import pprint
 def main():
-    ast, directives = vparse(["spm.synthesis.v"])
+    ast, directives = vparse(["lut_s44.synthesis.v"])
     parser = LefParser('lef.lef')
     parser.parse()
     # pprint.pprint(parser.statements)
