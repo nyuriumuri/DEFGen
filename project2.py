@@ -2,22 +2,28 @@ from lef_parser.lef_parser import *
 import pyverilog
 import sys
 import io
+import math
 from pyverilog.vparser.parser import parse as vparse
 from collections import OrderedDict
 import hdlparse.verilog_parser as vlog
-
+from getmn import getdim
 import pprint
 def main():
-    vfile = "lut_s44.synthesis.v"
+    vfile = "spm_synthesis.v"
     ast, directives = vparse([vfile])
     leffile = 'lef.lef'
     parser = LefParser(leffile)
     parser.parse()
+    margins = (5520, 10880)
     # pprint.pprint(parser.statements)
     # print(parser.stack)
     # pprint.pprint(parser.layer_dict)
+    aspectRatio = 0.8
+    cellnames, cells,ports = getComponents(ast)
+    diearea = getdim(aspectRatio,getCellAreas(cells, parser),parser.cell_height*1000,float(getMinWidth())*1000,Util=0.6)
+    diearea = (int(diearea[0]+2*margins[0]),int(diearea[1]+2*margins[1]))
     name = ast.children()[0].children()[0].name
-    diearea = ( 98990, 109710 )
+    print(diearea)
     output="""VERSION 5.8 ;
 DIVIDERCHAR "/" ;
 BUSBITCHARS "[]" ;
@@ -25,9 +31,9 @@ DESIGN """ +name+ """  ;
 UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str(diearea[1]) +" ) ;\n"
 
     # output = ""
-    output+=printRows(parser)
+    output+=printRows(parser,start=margins[1], lim = diearea[1]-margins[1], do=math.floor((diearea[1]-2*margins[1])/(1000*getMinWidth())), step= int(1000*getMinWidth()))
     output+=printTracks(parser.layer_dict.values())
-    cellnames, cells,ports = getComponents(ast)
+    
     
     output+=cellnames
     output+=getPins(ports)
@@ -39,7 +45,7 @@ UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str
     with open('def.def', 'w') as f:
         f.write(output)
     getCellAreas(cells, parser)
-    getMinWidth()
+    
     astshow = io.StringIO()
     ast.show(attrnames=True, buf=astshow)
     with open('ast.txt','w') as f:
@@ -94,12 +100,10 @@ def getComponents(ast):
     output+="END COMPONENTS\n"
     return output, components,ports
 
-def printRows(parser, start=10880, lim = 109710):
+def printRows(parser, start=10880, lim = 109710, step = 460, do=191 ):
      i = 0
      height = int(parser.cell_height*1000)
      out = ""
-     do = 191
-     step = 460
      while (start+(i+1)*height) <= lim-start:
          out+="ROW ROW_{0} unithd 5520 {1} {4} DO {2} BY 1 STEP {3} 0 ; \n".format(i, start+i*height, do, step, ('FS' if i%2 else 'N'))
          i+=1
@@ -159,7 +163,7 @@ def getMinWidth(file='lef.lef'):
                     s = line.split()
                     if s[0] == "SIZE":
                         # print(s[1],s[2],s[3])
-                        return (s[1])
+                        return float((s[1]))
     return 1
 
 
@@ -189,8 +193,20 @@ def getNets(components):
     output+="END NETS\n"
     return nets, output
 
-def getPins(ports):
+def getPins(ports, xmax=98990, ymax=109710, pinfile = "pins.txt", ):
     pins = []
+    direction = '#N'
+    directions = {}
+    with open(pinfile, 'r') as f:
+        for line in f:
+            line = line.strip()
+            if any(line == x for x in ['#N', '#E', '#W', '#S']):
+                direction = line
+                continue 
+            else:
+                directions[line] = direction
+    pprint.pprint(directions)
+
     for port in ports:
         if port['width']:
             lsb = int(port['width'][0])

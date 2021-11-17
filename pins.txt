@@ -1,0 +1,17 @@
+#N 
+din 
+kin 
+type 
+ 
+#S 
+dout 
+dout_a 
+ 
+#E 
+clk 
+rst 
+ 
+#W 
+din_valid 
+kin_valid 
+busy

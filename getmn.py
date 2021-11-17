@@ -1,8 +1,28 @@
 import math           
 def getdim (aspectratio,totalarea,lmin,wmin,Util=0.6):
-    corearea= totalarea/Util
-    
-    m=math.sqrt(corearea/(lmin*lmin*aspectratio))
-    n=aspectratio*m*lmin/wmin
-    return m,n
+    print(totalarea)
+    corearea= math.ceil(totalarea/Util)
+    print(corearea)
+    m=math.sqrt(corearea*aspectratio/(wmin*wmin))
+    n=m/lmin*wmin/aspectratio
+    print(corearea/(n*lmin))
+    return math.ceil(m)*wmin,math.ceil(n)*lmin
  
+
+""" input = [ xmax,
+           ymax,
+                {
+                    'N' : [
+                            pin1,
+                            pin2,
+                            ... 
+                    ],
+
+                    'W': [
+                        pin1,
+                        pin2,
+                    ]
+                }
+ }
+ """
+
