@@ -1,6 +1,6 @@
 Source: name= (at 3)
   Description:  (at 3)
-    ModuleDef: name=spm (at 3)
+    ModuleDef: name=xyz (at 3)
       Paramlist:  (at 0)
       Portlist:  (at 3)
         Port: name=clk, type=None (at 3)

@@ -45,7 +45,8 @@ UNITS DISTANCE MICRONS 1000 ;"""+"\nDIEAREA ( 0 0 ) ( "+str(diearea[0])+" "+ str
 
     output+="END DESIGN"
     print(output)
-    with open('def.def', 'w') as f:
+    fname = name+'.def'
+    with open(fname, 'w') as f:
         f.write(output)
     getCellAreas(cells, parser)
     
